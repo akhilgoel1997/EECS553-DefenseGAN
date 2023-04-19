@@ -1,11 +1,10 @@
-
 # !pip install cleverhans
 # Tensorflow 2.12
 
 import os
 
-from google.colab import drive
-drive.mount('/content/drive')
+# from google.colab import drive
+# drive.mount('/content/drive')
 
 import numpy as np
 import tensorflow as tf
@@ -18,14 +17,15 @@ from cleverhans.tf2.attacks.projected_gradient_descent import projected_gradient
 from cleverhans.tf2.attacks.fast_gradient_method import fast_gradient_method
 
 import glob
-import imageio
+# import imageio
 import matplotlib.pyplot as plt
 import os
 import PIL
 from tensorflow.keras import layers
 import time
 
-from IPython import display
+# from IPython import display
+
 
 def make_generator_model():
     model = tf.keras.Sequential()
@@ -51,6 +51,7 @@ def make_generator_model():
 
     return model
 
+
 generator = make_generator_model()
 
 noise = tf.random.normal([1, 100])
@@ -59,8 +60,7 @@ generated_image = generator(noise, training=False)
 plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 
 
-
-checkpoint_dir = '/content/drive/My Drive/Colab Notebooks/EECS553_Project/training_checkpoints'
+checkpoint_dir = 'training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(generator=generator)
 
@@ -71,29 +71,28 @@ generated_image = generator(noise, training=False)
 
 plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 
-R = 15
-L = 100
+R = 50
+L = 200
+
 
 def argminZ(image):
     mainList = []
     ZList = []
     for i in range(R):
-      myloss = tf.keras.losses.MeanSquaredError()
-      myoptim = tf.keras.optimizers.SGD(1e-2)
-      Z = tf.Variable(tf.random.normal([image.shape[0], 100]), trainable=True)
-      with tf.GradientTape() as Z_tape:
-        generated_image = generator(Z, training=False)
-        LOSS = myloss(generated_image+1, image)
-      
-      gradients = Z_tape.gradient(LOSS, [Z])
-      for j in range(L):
-        myoptim.apply_gradients(zip(gradients, [Z]))
-      
-      mainList.append(myloss(generator(Z, training=False), image))
-      ZList.append(Z)
-
+        myloss = tf.keras.losses.MeanSquaredError()
+        myoptim = tf.keras.optimizers.SGD(1e-1)
+        Z = tf.Variable(tf.random.normal([image.shape[0], 100]), trainable=True)
+        with tf.GradientTape() as Z_tape:
+            generated_image = generator(Z, training=False)
+            LOSS = myloss(generated_image, image)
+        gradients = Z_tape.gradient(LOSS, [Z])
+        for j in range(L):
+            myoptim.apply_gradients(zip(gradients, [Z]))
+        mainList.append(myloss(generator(Z, training=False), image))
+        ZList.append(Z)
     mainList = np.array(mainList)
-    return ZList[np.argmin(mainList)]
+    final_z = ZList[np.argmin(mainList)]
+    return final_z
 
 Xgen = None
 
@@ -119,16 +118,16 @@ class Net(Model):
         return self.dense2(x)
 
 
-def ld_mnist():
+def ld_mnist(batch=128):
     def convert_types(image, label):
         image = tf.cast(image, tf.float32)
         image /= 255
         return image, label
 
-    dataset, info = tfds.load("mnist", data_dir="gs://tfds-data/datasets", with_info=True, as_supervised=True)
+    dataset, info = tfds.load("mnist", with_info=True, as_supervised=True)
     mnist_train, mnist_test = dataset["train"], dataset["test"]
-    mnist_train = mnist_train.map(convert_types).shuffle(10000).batch(128)
-    mnist_test = mnist_test.map(convert_types).batch(128)
+    mnist_train = mnist_train.map(convert_types).shuffle(10000).batch(batch)
+    mnist_test = mnist_test.map(convert_types).batch(batch)
     return EasyDict(train=mnist_train, test=mnist_test)
 
 
@@ -160,24 +159,29 @@ def main():
             train_step(x, y)
             progress_bar_train.add(x.shape[0], values=[("loss", train_loss.result())])
 
+    data = ld_mnist(1)
+
     progress_bar_test = tf.keras.utils.Progbar(10000)
+    i = 0
     for x, y in data.test:
+        i += 1
         y_pred = model(x)
         test_acc_clean(y, y_pred)
-
+        plt.imshow(x[0, :, :, 0], cmap='gray')
+        plt.show()
         x_fgm = fast_gradient_method(model, x, 0.3, np.inf)
         y_pred_fgm = model(x_fgm)
         test_acc_fgsm(y, y_pred_fgm)
-
-        Z = argminZ(x)
+        myloss = tf.keras.losses.MeanSquaredError()
+        loss = myloss(x_fgm, x)
+        Z = argminZ(x_fgm)
         Xgen = generator(Z, training=False)
-
         y_pred_defense_gan = model(Xgen)
         test_acc_defense_gan(y, y_pred_defense_gan)
 
         progress_bar_test.add(x.shape[0])
-        break
-
+        if i == 100:
+            break
     print("test acc on clean examples (%): {:.3f}".format(test_acc_clean.result() * 100))
     print("test acc on FGM adversarial examples (%): {:.3f}".format(test_acc_fgsm.result() * 100))
     print("test acc on Defense GAN examples (%): {:.3f}".format(test_acc_defense_gan.result() * 100))
