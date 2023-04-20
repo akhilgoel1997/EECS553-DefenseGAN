@@ -71,7 +71,7 @@ generated_image = generator(noise, training=False)
 
 plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 
-R = 50
+R = 10
 L = 200
 
 
@@ -88,11 +88,6 @@ def argminZ(image):
         gradients = Z_tape.gradient(LOSS, [Z])
         for j in range(L):
             myoptim.apply_gradients(zip(gradients, [Z]))
-        generated_image = generator(Z, training=False)
-        LOSS = myloss(generated_image, image)
-        print(LOSS)
-        plt.imshow(generated_image[0, :, :, 0], cmap='gray')
-        plt.show()
         mainList.append(myloss(generator(Z, training=False), image))
         ZList.append(Z)
     mainList = np.array(mainList)
@@ -159,11 +154,11 @@ def main():
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         train_loss(loss)
 
-    # for epoch in range(8):
-    #     progress_bar_train = tf.keras.utils.Progbar(60000)
-    #     for (x, y) in data.train:
-    #         train_step(x, y)
-    #         progress_bar_train.add(x.shape[0], values=[("loss", train_loss.result())])
+    for epoch in range(8):
+        progress_bar_train = tf.keras.utils.Progbar(60000)
+        for (x, y) in data.train:
+            train_step(x, y)
+            progress_bar_train.add(x.shape[0], values=[("loss", train_loss.result())])
 
     # data = ld_mnist(1)
     with open('perturbed.npy', 'rb') as f:
@@ -178,22 +173,22 @@ def main():
         i += 1
         y_pred = model(x)
         test_acc_clean(y, y_pred)
-        plt.imshow(x[0, :, :, 0], cmap='gray')
-        plt.show()
+        # plt.imshow(x[0, :, :, 0], cmap='gray')
+        # plt.show()
         x_fgm = fast_gradient_method(model, x, 0.3, np.inf)
-        plt.imshow(x_fgm[0, :, :, 0], cmap='gray')
-        plt.show()
+        # plt.imshow(x_fgm[0, :, :, 0], cmap='gray')
+        # plt.show()
         y_pred_fgm = model(x_fgm)
         test_acc_fgsm(y, y_pred_fgm)
-        myloss= tf.keras.losses.MeanSquaredError()
-        loss = myloss(x_fgm, x)
-        print(loss)
+        # myloss= tf.keras.losses.MeanSquaredError()
+        # loss = myloss(x_fgm, x)
+        # print(loss)
         Z = argminZ(x)
         Xgen = generator(Z, training=False)
         # plt.imshow(Xgen[0, :, :, 0], cmap='gray')
         # plt.show()
-        myloss = tf.keras.losses.MeanSquaredError()
-        loss = myloss(x_fgm, Xgen)
+        # myloss = tf.keras.losses.MeanSquaredError()
+        # loss = myloss(x, Xgen)
         # print(loss)
         y_pred_defense_gan = model(Xgen)
         test_acc_defense_gan(y, y_pred_defense_gan)

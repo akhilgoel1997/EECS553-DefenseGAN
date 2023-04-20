@@ -49,6 +49,8 @@ def ld_mnist(batch=150):
     def convert_types(image, label):
         image = tf.cast(image, tf.float32)
         image /= 255
+        image = image * 2
+        image = image - 1
         return image, label
 
     dataset, info = tfds.load("mnist", with_info=True, as_supervised=True)
@@ -79,7 +81,7 @@ def main():
         optimizer.apply_gradients(zip(gradients, mod.trainable_variables))
         train_loss(loss)
 
-    for epoch in range(100):
+    for epoch in range(125):
         progress_bar_train = tf.keras.utils.Progbar(150)
         for (x, y) in data.train1:
             train_step(x, y)
@@ -91,9 +93,10 @@ def main():
     y_list = []
     for x, y in data.test:
         x_fgm = fast_gradient_method(mod, x, 0.3, np.inf)
-        # plt.imshow(x[0, :, :, 0], cmap='gray', vmin=-0.3, vmax=1.3)
+        x_fgm = x_fgm / 1.3
+        # plt.imshow(x[0, :, :, 0], cmap='gray')
         # plt.show()
-        # plt.imshow(x_fgm[0, :, :, 0], cmap='gray', vmin=-0.3, vmax=1.3)
+        # plt.imshow(x_fgm[0, :, :, 0], cmap='gray')
         # plt.show()
         # myloss = tf.keras.losses.MeanSquaredError()
         # loss = myloss(x_fgm, x)
