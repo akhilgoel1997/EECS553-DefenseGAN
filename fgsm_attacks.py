@@ -71,7 +71,7 @@ generated_image = generator(noise, training=False)
 
 plt.imshow(generated_image[0, :, :, 0], cmap='gray')
 
-R = 10
+R = 50
 L = 200
 
 
@@ -123,6 +123,8 @@ def ld_mnist(batch=150):
     def convert_types(image, label):
         image = tf.cast(image, tf.float32)
         image /= 255
+        image = image * 2
+        image = image - 1
         return image, label
 
     dataset, info = tfds.load("mnist", with_info=True, as_supervised=True)
@@ -134,7 +136,7 @@ def ld_mnist(batch=150):
 
 def main():
     global Xgen
-    data = ld_mnist()
+    data = ld_mnist(200)
     model = Net()
     loss_object = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
     optimizer = tf.optimizers.Adam(learning_rate=0.001)
