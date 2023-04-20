@@ -88,6 +88,11 @@ def argminZ(image):
         gradients = Z_tape.gradient(LOSS, [Z])
         for j in range(L):
             myoptim.apply_gradients(zip(gradients, [Z]))
+        generated_image = generator(Z, training=False)
+        LOSS = myloss(generated_image, image)
+        print(LOSS)
+        plt.imshow(generated_image[0, :, :, 0], cmap='gray')
+        plt.show()
         mainList.append(myloss(generator(Z, training=False), image))
         ZList.append(Z)
     mainList = np.array(mainList)
@@ -100,10 +105,11 @@ Xgen = None
 class Net(Model):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = Conv2D(64, 8, strides=(2, 2), activation="relu", padding="same")
-        self.conv2 = Conv2D(128, 6, strides=(2, 2), activation="relu", padding="valid")
-        self.conv3 = Conv2D(128, 5, strides=(1, 1), activation="relu", padding="valid")
-        self.dropout = Dropout(0.25)
+        self.conv1 = Conv2D(64, 5, strides=(1, 1), activation="relu", padding="same")
+        self.conv2 = Conv2D(64, 5, strides=(2, 2), activation="relu", padding="valid")
+        # self.conv3 = Conv2D(128, 5, strides=(1, 1), activation="relu", padding="valid")
+        self.dropout1 = Dropout(0.25)
+        self.dropout2 = Dropout(0.5)
         self.flatten = Flatten()
         self.dense1 = Dense(128, activation="relu")
         self.dense2 = Dense(10)
@@ -111,14 +117,14 @@ class Net(Model):
     def call(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.dropout(x)
+        x = self.dropout1(x)
         x = self.flatten(x)
         x = self.dense1(x)
+        x = self.dropout2(x)
         return self.dense2(x)
 
 
-def ld_mnist(batch=128):
+def ld_mnist(batch=150):
     def convert_types(image, label):
         image = tf.cast(image, tf.float32)
         image /= 255
@@ -153,29 +159,42 @@ def main():
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         train_loss(loss)
 
-    for epoch in range(8):
-        progress_bar_train = tf.keras.utils.Progbar(60000)
-        for (x, y) in data.train:
-            train_step(x, y)
-            progress_bar_train.add(x.shape[0], values=[("loss", train_loss.result())])
+    # for epoch in range(8):
+    #     progress_bar_train = tf.keras.utils.Progbar(60000)
+    #     for (x, y) in data.train:
+    #         train_step(x, y)
+    #         progress_bar_train.add(x.shape[0], values=[("loss", train_loss.result())])
 
-    data = ld_mnist(1)
-
+    # data = ld_mnist(1)
+    with open('perturbed.npy', 'rb') as f:
+        pert = np.load(f)
+    with open('original.npy', 'rb') as f:
+        orig = np.load(f)
+    with open('y_list.npy', 'rb') as f:
+        y_list = np.load(f)
     progress_bar_test = tf.keras.utils.Progbar(10000)
     i = 0
-    for x, y in data.test:
+    for x, x_fgm, y in zip(orig, pert, y_list):
         i += 1
         y_pred = model(x)
         test_acc_clean(y, y_pred)
         plt.imshow(x[0, :, :, 0], cmap='gray')
         plt.show()
         x_fgm = fast_gradient_method(model, x, 0.3, np.inf)
+        plt.imshow(x_fgm[0, :, :, 0], cmap='gray')
+        plt.show()
         y_pred_fgm = model(x_fgm)
         test_acc_fgsm(y, y_pred_fgm)
-        myloss = tf.keras.losses.MeanSquaredError()
+        myloss= tf.keras.losses.MeanSquaredError()
         loss = myloss(x_fgm, x)
-        Z = argminZ(x_fgm)
+        print(loss)
+        Z = argminZ(x)
         Xgen = generator(Z, training=False)
+        # plt.imshow(Xgen[0, :, :, 0], cmap='gray')
+        # plt.show()
+        myloss = tf.keras.losses.MeanSquaredError()
+        loss = myloss(x_fgm, Xgen)
+        # print(loss)
         y_pred_defense_gan = model(Xgen)
         test_acc_defense_gan(y, y_pred_defense_gan)
 
