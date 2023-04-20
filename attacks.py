@@ -92,7 +92,7 @@ def main():
     original = []
     y_list = []
     for x, y in data.test:
-        x_fgm = fast_gradient_method(mod, x, 0.3, np.inf)
+        x_fgm = fast_gradient_method(mod, x, 0.6, np.inf)
         x_fgm = x_fgm / 1.3
         # plt.imshow(x[0, :, :, 0], cmap='gray')
         # plt.show()

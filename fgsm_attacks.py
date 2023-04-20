@@ -169,7 +169,7 @@ def main():
         orig = np.load(f)
     with open('y_list.npy', 'rb') as f:
         y_list = np.load(f)
-    progress_bar_test = tf.keras.utils.Progbar(10000)
+    progress_bar_test = tf.keras.utils.Progbar(9850)
     i = 0
     for x, x_fgm, y in zip(orig, pert, y_list):
         i += 1
@@ -177,7 +177,6 @@ def main():
         test_acc_clean(y, y_pred)
         # plt.imshow(x[0, :, :, 0], cmap='gray')
         # plt.show()
-        x_fgm = fast_gradient_method(model, x, 0.3, np.inf)
         # plt.imshow(x_fgm[0, :, :, 0], cmap='gray')
         # plt.show()
         y_pred_fgm = model(x_fgm)
@@ -185,7 +184,7 @@ def main():
         # myloss= tf.keras.losses.MeanSquaredError()
         # loss = myloss(x_fgm, x)
         # print(loss)
-        Z = argminZ(x)
+        Z = argminZ(x_fgm)
         Xgen = generator(Z, training=False)
         # plt.imshow(Xgen[0, :, :, 0], cmap='gray')
         # plt.show()
